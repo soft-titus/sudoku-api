@@ -1,0 +1,33 @@
+---
+
+name: CI
+
+on:
+  push:
+    branches:
+      - '*'
+  pull_request:
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Run Black
+        run: python -m black --check ./
+
+      - name: Run Pylint
+        run: python -m pylint ./
