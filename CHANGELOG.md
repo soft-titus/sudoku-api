@@ -11,3 +11,11 @@
 - Merge pull request #1 from soft-titus/dev
 - feat: add POST /puzzle endpoint
 
+
+
+## 1.1.1 - 2025-12-29
+- Merge pull request #2 from soft-titus/dev
+- fix: support handling of CSVs
+- fix: centralize S3 config and remove ingester-specific config
+- fix: added PATCH /puzzle endpoint
+
