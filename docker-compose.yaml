@@ -194,11 +194,7 @@ services:
       echo 'Creating bucket if not exists...';
       mc mb --ignore-existing local/${S3_BUCKET_NAME};
       
-      echo 'Set public access for the bucket';
-      mc anonymous set download local/${S3_BUCKET_NAME};
-
-      echo 'Bucket ready: ${S3_BUCKET_NAME}';
-      "
+      echo 'Bucket ready: ${S3_BUCKET_NAME}';"
     restart: "no"
 
   ingester:

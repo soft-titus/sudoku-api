@@ -9,7 +9,7 @@ from typing import Optional
 import botocore.session
 from botocore.client import BaseClient
 
-from ingester import config
+import config
 
 
 def get_s3_client() -> BaseClient:

@@ -31,7 +31,7 @@ class PuzzleStatus(str, Enum):
     FAILED = "FAILED"
 
 
-class PuzzleRequest(BaseModel):
+class PuzzleCreationRequest(BaseModel):
     """
     Model for Sudoku puzzle creation request.
 
@@ -46,6 +46,21 @@ class PuzzleRequest(BaseModel):
     level: PuzzleLevel = PuzzleLevel.MEDIUM
 
 
+class PuzzleUpdateRequest(BaseModel):
+    """
+    Model for Sudoku puzzle update request.
+
+    Attributes:
+        puzzleId: Unique identifier for the puzzle (required).
+        puzzleSize: Size of the puzzle (optional, default None).
+        level: Difficulty level (optional, default None).
+    """
+
+    puzzleId: constr(min_length=1)
+    puzzleSize: Optional[PuzzleSize] = None
+    level: Optional[PuzzleLevel] = None
+
+
 class PuzzleResponse(BaseModel):
     """
     Model representing a Sudoku puzzle document stored in MongoDB.
@@ -55,8 +70,6 @@ class PuzzleResponse(BaseModel):
         puzzleSize: Size of the puzzle.
         level: Difficulty level.
         status: Current status of the puzzle generation.
-        solutionImageKey: S3 key for the solution image (optional).
-        puzzleImageKey: S3 key for the puzzle image (optional).
         failedAt: UTC timestamp when the puzzle generation failed (optional).
         failedReason: Reason for failure (optional).
         createdAt: UTC timestamp when the puzzle generation request was created.
@@ -67,8 +80,6 @@ class PuzzleResponse(BaseModel):
     puzzleSize: PuzzleSize
     level: PuzzleLevel
     status: PuzzleStatus
-    solutionImageKey: Optional[str] = None
-    puzzleImageKey: Optional[str] = None
     failedAt: Optional[datetime] = None
     failedReason: Optional[str] = None
     createdAt: datetime

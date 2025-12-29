@@ -77,8 +77,10 @@ docker compose run --rm ingester \
 ,3,0,0,0\
 ,1,2,3,0\
 ,0,0,0,2" \
-  --solution-image-path images/pz-001_solution.png \
-  --puzzle-image-path images/pz-001_puzzle.png
+  --solution-csv-path samples/pz-001_solution.csv \
+  --puzzle-csv-path samples/pz-001_puzzle.csv \
+  --solution-image-path samples/pz-001_solution.png \
+  --puzzle-image-path samples/pz-001_puzzle.png
 
 docker compose run --rm ingester \
   --puzzle-id pz-002 \
@@ -104,9 +106,11 @@ docker compose run --rm ingester \
 ,2,7,0,6,8,0,0,4,0\
 ,0,6,0,0,5,0,0,7,0\
 ,0,0,4,0,2,0,5,0,0\
-,1,3,0,0,0,4,0,0,2"
-  --solution-image-path images/pz-002_solution.png \
-  --puzzle-image-path images/pz-002_puzzle.png
+,1,3,0,0,0,4,0,0,2" \
+  --solution-csv-path samples/pz-002_solution.csv \
+  --puzzle-csv-path samples/pz-002_puzzle.csv \
+  --solution-image-path samples/pz-002_solution.png \
+  --puzzle-image-path samples/pz-002_puzzle.png
 
 docker compose run --rm ingester \
   --puzzle-id pz-003 \
@@ -146,9 +150,11 @@ docker compose run --rm ingester \
 ,11,12,3,0,0,4,0,16,0,0,6,13,8,0,0,0\
 ,0,0,0,1,0,2,0,12,0,0,16,3,0,15,0,0\
 ,4,16,13,0,0,15,0,0,2,8,14,0,0,0,0,1\
-,10,0,0,0,14,0,0,3,0,4,15,0,11,13,0,16"
-  --solution-image-path images/pz-003_solution.png \
-  --puzzle-image-path images/pz-003_puzzle.png
+,10,0,0,0,14,0,0,3,0,4,15,0,11,13,0,16" \
+  --solution-csv-path samples/pz-003_solution.csv \
+  --puzzle-csv-path samples/pz-003_puzzle.csv \
+  --solution-image-path samples/pz-003_solution.png \
+  --puzzle-image-path samples/pz-003_puzzle.png
 
 docker compose run --rm ingester \
   --puzzle-id pz-004 \
@@ -179,20 +185,17 @@ docker compose run --rm ingester \
 | puzzle              | no       | Sudoku puzzle; randomly generated if not provided       |
 | failed-at           | no       | RFC-3339 / ISO-8601 time format, timestamp when failed  |
 | failed-reason       | no       | Any string, failed reason                               |
+| solution-csv-path   | no       | solution CSV path to upload to minio                    |
+| puzzle-csv-path     | no       | puzzle CSV path to upload to minio                      |
 | solution-image-path | no       | solution image path to upload to minio                  |
 | puzzle-image-path   | no       | puzzle image path to upload to minio                    |
 
-If solution and puzzle are provided, they must match the puzzle size, or the worker will consider the data invalid:
-- puzzle-size 4, should have 16 numbers
-- puzzle-size 9, should have 81 numbers
-- puzzle-size 16, should have 256 numbers
-
 Failed-at and failed-reason only relevant when status is "FAILED".
 
-If solution-image-path and puzzle-image-path provided :
-- the image must be exists inside the container (check images folder on this repo)
-- the image file will be uploaded to minio
-- solutionImageKey and puzzleImageKey will be set in mongodb, point to the object uploaded to minio
+If solution-csv-path, puzzle-csv-path, solution-image-path and puzzle-image-path provided :
+- the files must be exists inside the container (check samples folder on this repo)
+- the file will be uploaded to minio
+- solutionCSVKey, puzzleCSVKey, solutionImageKey and puzzleImageKey will be set in mongodb, point to the object uploaded to minio
 - Only relevant when status is "SUCCESS"
 
 ---

@@ -7,7 +7,6 @@ import os
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
-IMAGE_BASE_URL = os.getenv("IMAGE_BASE_URL", "http://minio:9000/sudoku")
 CACHE_TTL_HOURS = int(os.getenv("CACHE_TTL_HOURS", "168"))
 
 KAFKA_BROKER_HOST = os.getenv("KAFKA_BROKER_HOST", "kafka")
@@ -34,3 +33,18 @@ if MONGO_OPTIONS:
 REDIS_HOST = os.getenv("REDIS_HOST", "redis")
 REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
 REDIS_DB = int(os.getenv("REDIS_DB", "0"))
+
+AWS_ACCESS_KEY_ID = os.getenv("MINIO_ROOT_USER", "sudoku")
+AWS_SECRET_ACCESS_KEY = os.getenv("MINIO_ROOT_PASSWORD", "verySECRET123")
+AWS_REGION = os.getenv("AWS_REGION", "ap-southeast-1")
+
+S3_PROTOCOL = os.getenv("S3_PROTOCOL", "https")
+S3_HOST = os.getenv("S3_HOST")
+S3_PORT = os.getenv("S3_PORT")
+S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "sudoku")
+
+S3_ENDPOINT_URL = ""
+if S3_HOST:
+    S3_ENDPOINT_URL = f"{S3_PROTOCOL}://{S3_HOST}"
+    if S3_PORT:
+        S3_ENDPOINT_URL = f"{S3_ENDPOINT_URL}:{S3_PORT}"
