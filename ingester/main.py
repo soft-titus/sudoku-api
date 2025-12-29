@@ -16,7 +16,6 @@ from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 
 import config
-from ingester import config as ingester_config
 from ingester import s3
 
 
@@ -163,7 +162,7 @@ def main() -> None:
                 s3.upload_file_from_path(
                     args.solution_image_path,
                     solution_image_key,
-                    ingester_config.S3_BUCKET_NAME,
+                    config.S3_BUCKET_NAME,
                     content_type="image/png",
                 )
             except FileNotFoundError:
@@ -181,7 +180,7 @@ def main() -> None:
                 s3.upload_file_from_path(
                     args.puzzle_image_path,
                     puzzle_image_key,
-                    ingester_config.S3_BUCKET_NAME,
+                    config.S3_BUCKET_NAME,
                     content_type="image/png",
                 )
             except FileNotFoundError:
