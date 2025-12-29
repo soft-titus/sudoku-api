@@ -30,6 +30,17 @@ class MongoDBClient:
         return cls._instance
 
     @classmethod
+    def get_db(cls):
+        """
+        Get the configured database.
+
+        Returns:
+            Database: The MongoDB database instance.
+        """
+        client = cls.get_client()
+        return client.get_database(config.MONGO_DB)
+
+    @classmethod
     def check_health(cls) -> None:
         """
         Perform a simple health check by pinging the MongoDB server.

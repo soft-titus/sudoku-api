@@ -3,6 +3,7 @@ Kafka service module
 """
 
 import logging
+from typing import Union
 from confluent_kafka import Producer, KafkaError
 
 import config
@@ -47,6 +48,39 @@ class KafkaClient:
         try:
             producer.list_topics(timeout=5)
             logger.info("Kafka connection OK")
-        except KafkaError as e:
-            logger.error("Kafka health check failed: %s", e)
+        except KafkaError as exc:
+            logger.error("Kafka health check failed: %s", exc)
             raise
+
+    @classmethod
+    def produce_message(cls, topic: str, key: str, value: Union[str, bytes]) -> None:
+        """
+        Produce a message to the specified Kafka topic.
+
+        Args:
+            topic: Kafka topic name.
+            key: Message key.
+            value: Message payload (str or bytes).
+
+        Raises:
+            KafkaError: If message cannot be delivered.
+        """
+        producer = cls.get_producer()
+        try:
+            producer.produce(
+                topic=topic, key=key, value=value, on_delivery=cls.delivery_report
+            )
+            producer.flush()
+        except KafkaError as exc:
+            logger.error("Failed to produce message to Kafka: %s", exc)
+            raise
+
+    @staticmethod
+    def delivery_report(err, msg) -> None:
+        """
+        Callback called once message is delivered or delivery fails.
+        """
+        if err is not None:
+            logger.error("Message delivery failed: %s", err)
+        else:
+            logger.info("Message delivered to %s [%s]", msg.topic(), msg.partition())

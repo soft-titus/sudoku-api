@@ -12,8 +12,8 @@ services:
         condition: service_healthy
       kafka-init:
         condition: service_completed_successfully
-      mongodb:
-        condition: service_healthy
+      mongodb-init:
+        condition: service_completed_successfully
       minio-init:
         condition: service_completed_successfully
     restart: unless-stopped
@@ -147,6 +147,37 @@ services:
       '
     restart: "no"
 
+  mongodb-init:
+    image: mongo:7.0.28
+    container_name: mongodb-init
+    env_file:
+      - .env
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    command: >
+      bash -euxo pipefail -c '
+        echo "Waiting for MongoDB to be ready...";
+
+        mongosh \
+          --host "${MONGO_HOST:-mongodb}" \
+          --port "${MONGO_PORT:-27017}" \
+          --username "$MONGO_USER" \
+          --password "$MONGO_PASSWORD" \
+          --authenticationDatabase admin \
+          "$MONGO_DB" \
+          --eval "
+            db.getCollection(\"$MONGO_COLLECTION_NAME\")
+              .createIndex(
+                { puzzleId: 1 },
+                { unique: true, name: \"uniq_puzzle_id\" }
+              );
+          ";
+
+        echo \"MongoDB initialization completed\";
+      '
+    restart: "no"
+
   minio-init:
     image: minio/mc
     container_name: minio-init
@@ -178,8 +209,8 @@ services:
     env_file:
       - .env
     depends_on:
-      mongodb:
-        condition: service_healthy
+      mongodb-init:
+        condition: service_completed_successfully
       minio-init:
         condition: service_completed_successfully
     restart: "no"
