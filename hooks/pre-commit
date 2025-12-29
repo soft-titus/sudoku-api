@@ -1,0 +1,26 @@
+#!/bin/sh
+
+# Get staged Python files inside app/
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=d -- '*.py' | grep -E '^app/')
+
+if [ -z "$STAGED_FILES" ]; then
+  echo "No staged Python files in app/. Skipping."
+  exit 0
+fi
+
+echo "Checking Black formatting..."
+python -m black --check $STAGED_FILES
+if [ $? -ne 0 ]; then
+  echo "Black check failed."
+  exit 1
+fi
+
+echo "Running pylint..."
+python -m pylint $STAGED_FILES
+if [ $? -ne 0 ]; then
+  echo "Pylint failed."
+  exit 1
+fi
+
+echo "All checks passed!"
+exit 0
