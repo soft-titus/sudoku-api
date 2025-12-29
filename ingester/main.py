@@ -109,6 +109,16 @@ def parse_arguments() -> argparse.Namespace:
         help="Failure reason",
     )
     parser.add_argument(
+        "--solution-csv-path",
+        default=None,
+        help="Path to solution CSV",
+    )
+    parser.add_argument(
+        "--solution-csv-path",
+        default=None,
+        help="Path to puzzle CSV",
+    )
+    parser.add_argument(
         "--solution-image-path",
         default=None,
         help="Path to solution image",
@@ -122,7 +132,7 @@ def parse_arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
-# pylint: disable=too-many-branches,too-many-statements
+# pylint: disable=too-many-branches,too-many-statements,too-many-locals
 def main() -> None:
     """Entry point for the ingester."""
     logging.basicConfig(
@@ -153,8 +163,44 @@ def main() -> None:
 
         now = datetime.now(timezone.utc)
 
+        solution_csv_key = None
+        puzzle_csv_key = None
         solution_image_key = None
         puzzle_image_key = None
+
+        if args.solution_csv_path:
+            try:
+                solution_csv_key = f"{args.puzzle_id}/solution.csv"
+                s3.upload_file_from_path(
+                    args.solution_csv_path,
+                    solution_csv_key,
+                    config.S3_BUCKET_NAME,
+                    content_type="text/csv; charset=utf-8",
+                )
+            except FileNotFoundError:
+                logging.warning(
+                    "Solution CSV not found at path %s", args.solution_csv_path
+                )
+                sys.exit(1)
+            except Exception:  # pylint: disable=broad-except
+                logging.exception("Failed to upload solution CSV")
+                sys.exit(1)
+
+        if args.puzzle_csv_path:
+            try:
+                puzzle_csv_key = f"{args.puzzle_id}/puzzle.csv"
+                s3.upload_file_from_path(
+                    args.puzzle_csv_path,
+                    puzzle_csv_key,
+                    config.S3_BUCKET_NAME,
+                    content_type="text/csv; charset=utf-8",
+                )
+            except FileNotFoundError:
+                logging.warning("Puzzle CSV not found at path %s", args.puzzle_csv_path)
+                sys.exit(1)
+            except Exception:  # pylint: disable=broad-except
+                logging.exception("Failed to upload puzzle CSV")
+                sys.exit(1)
 
         if args.solution_image_path:
             try:
@@ -207,6 +253,10 @@ def main() -> None:
             set_fields["failedAt"] = args.failed_at
         if args.failed_reason is not None:
             set_fields["failedReason"] = args.failed_reason
+        if solution_csv_key:
+            set_fields["solutionCSVKey"] = solution_csv_key
+        if puzzle_csv_key:
+            set_fields["puzzleCSVKey"] = puzzle_csv_key
         if solution_image_key:
             set_fields["solutionImageKey"] = solution_image_key
         if puzzle_image_key:

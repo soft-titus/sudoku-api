@@ -70,8 +70,6 @@ class PuzzleResponse(BaseModel):
         puzzleSize: Size of the puzzle.
         level: Difficulty level.
         status: Current status of the puzzle generation.
-        solutionImageKey: S3 key for the solution image (optional).
-        puzzleImageKey: S3 key for the puzzle image (optional).
         failedAt: UTC timestamp when the puzzle generation failed (optional).
         failedReason: Reason for failure (optional).
         createdAt: UTC timestamp when the puzzle generation request was created.
@@ -82,8 +80,6 @@ class PuzzleResponse(BaseModel):
     puzzleSize: PuzzleSize
     level: PuzzleLevel
     status: PuzzleStatus
-    solutionImageKey: Optional[str] = None
-    puzzleImageKey: Optional[str] = None
     failedAt: Optional[datetime] = None
     failedReason: Optional[str] = None
     createdAt: datetime

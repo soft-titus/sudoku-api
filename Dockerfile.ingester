@@ -5,7 +5,7 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-COPY images/ ./images/
+COPY samples/ ./samples/
 
 COPY requirements-local.txt .
 RUN pip install --no-cache-dir -r requirements-local.txt
