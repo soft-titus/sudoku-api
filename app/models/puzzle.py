@@ -31,7 +31,7 @@ class PuzzleStatus(str, Enum):
     FAILED = "FAILED"
 
 
-class PuzzleRequest(BaseModel):
+class PuzzleCreationRequest(BaseModel):
     """
     Model for Sudoku puzzle creation request.
 
@@ -44,6 +44,21 @@ class PuzzleRequest(BaseModel):
     puzzleId: constr(min_length=1)
     puzzleSize: PuzzleSize = PuzzleSize.SIZE_9
     level: PuzzleLevel = PuzzleLevel.MEDIUM
+
+
+class PuzzleUpdateRequest(BaseModel):
+    """
+    Model for Sudoku puzzle update request.
+
+    Attributes:
+        puzzleId: Unique identifier for the puzzle (required).
+        puzzleSize: Size of the puzzle (optional, default None).
+        level: Difficulty level (optional, default None).
+    """
+
+    puzzleId: constr(min_length=1)
+    puzzleSize: Optional[PuzzleSize] = None
+    level: Optional[PuzzleLevel] = None
 
 
 class PuzzleResponse(BaseModel):
