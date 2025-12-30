@@ -72,24 +72,11 @@ class RedisClient:
             logger.warning("Failed to set key in Redis: %s", e)
 
     @classmethod
-    def clear_key(cls, key: str) -> bool:
-        """
-        Delete a key from Redis if it exists.
-
-        Args:
-            key (str): Redis key to delete.
-
-        Returns:
-            bool: True if the key was deleted, False if the key did not exist.
-        """
+    def clear_keys(cls, keys: list[str]) -> None:
+        """Delete multiple Redis keys at once."""
         client = cls.get_client()
         try:
-            deleted_count = client.delete(key)
-            if deleted_count > 0:
-                logger.info("Deleted key from Redis: %s", key)
-                return True
-            logger.info("Key not found in Redis: %s", key)
-            return False
+            deleted_count = client.delete(*keys)
+            logger.info("Deleted %d Redis keys: %s", deleted_count, keys)
         except redis_exceptions.RedisError as e:
-            logger.warning("Failed to delete key from Redis: %s", e)
-            return False
+            logger.warning("Failed to delete Redis keys %s: %s", keys, e)
