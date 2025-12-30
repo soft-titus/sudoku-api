@@ -19,3 +19,10 @@
 - fix: centralize S3 config and remove ingester-specific config
 - fix: added PATCH /puzzle endpoint
 
+
+
+## 1.1.2 - 2025-12-30
+- Merge pull request #3 from soft-titus/dev
+- fix: add DELETE /puzzle endpoint
+- fix: add s3 health-check
+
