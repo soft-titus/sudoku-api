@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import json
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pymongo.errors import DuplicateKeyError
 
 from app.helpers.logger import logger
@@ -184,6 +185,96 @@ def get_puzzle(puzzle_id: str):
         raise HTTPException(status_code=500, detail="Failed to fetch puzzle") from e
 
 
+@router.get(
+    "/puzzle/{puzzle_id}/solution",
+    summary="Get solution file of a Sudoku puzzle",
+    description=(
+        "Fetch the solution of a Sudoku puzzle by puzzle_id.\n\n"
+        "Fetches from Redis cache first. If not found, retrieves the puzzle "
+        "document using `GET /puzzle`, then downloads the file from S3 using "
+        "the keys stored in MongoDB. Cache is updated for future requests."
+    ),
+    responses={
+        200: {"description": "File successfully fetched"},
+        400: {"description": "Puzzle is not ready or invalid file_format"},
+        404: {"description": "Puzzle not found"},
+        500: {"description": "Failed to fetch file from S3"},
+    },
+)
+def get_solution_file(puzzle_id: str, file_format: str = "png"):
+    """Retrieve the solution file for a Sudoku puzzle."""
+    if file_format not in ("csv", "png"):
+        raise HTTPException(
+            status_code=400, detail="Invalid file_format, supported value : 'csv, png'"
+        )
+
+    # Reuse GET /puzzle logic
+    puzzle_data = get_puzzle(puzzle_id)
+
+    data = _fetch_file_from_cache_s3(puzzle_id, "solution", file_format, puzzle_data)
+
+    if file_format == "csv":
+        return StreamingResponse(
+            content=data if isinstance(data, bytes) else data.encode(),
+            media_type="text/csv; charset=utf-8",
+            headers={
+                "Content-Disposition": f"attachment; filename={puzzle_id}_solution.csv"
+            },
+        )
+
+    return StreamingResponse(
+        content=data,
+        media_type="image/png",
+        headers={
+            "Content-Disposition": f"attachment; filename={puzzle_id}_solution.png"
+        },
+    )
+
+
+@router.get(
+    "/puzzle/{puzzle_id}/puzzle",
+    summary="Get puzzle file of a Sudoku puzzle",
+    description=(
+        "Fetch the puzzle (unsolved) of a Sudoku puzzle by puzzle_id.\n\n"
+        "Fetches from Redis cache first. If not found, retrieves the puzzle "
+        "document using `GET /puzzle`, then downloads the file from S3 using "
+        "the keys stored in MongoDB. Cache is updated for future requests."
+    ),
+    responses={
+        200: {"description": "File successfully fetched"},
+        400: {"description": "Puzzle is not ready or invalid file_format"},
+        404: {"description": "Puzzle not found"},
+        500: {"description": "Failed to fetch file from S3"},
+    },
+)
+def get_puzzle_file(puzzle_id: str, file_format: str = "png"):
+    """Retrieve the puzzle (unsolved) file for a Sudoku puzzle."""
+    if file_format not in ("csv", "png"):
+        raise HTTPException(
+            status_code=400, detail="Invalid file_format, supported value : 'csv, png'"
+        )
+
+    # Reuse GET /puzzle logic
+    puzzle_data = get_puzzle(puzzle_id)
+
+    data = _fetch_file_from_cache_s3(puzzle_id, "puzzle", file_format, puzzle_data)
+
+    if file_format == "csv":
+        return StreamingResponse(
+            content=data if isinstance(data, bytes) else data.encode(),
+            media_type="text/csv; charset=utf-8",
+            headers={
+                "Content-Disposition": f"attachment; filename={puzzle_id}_puzzle.csv"
+            },
+        )
+
+    return StreamingResponse(
+        content=data,
+        media_type="image/png",
+        headers={"Content-Disposition": f"attachment; filename={puzzle_id}_puzzle.png"},
+    )
+
+
 @router.patch(
     "/puzzle",
     summary="Update an existing Sudoku puzzle",
@@ -246,7 +337,7 @@ def update_puzzle(request: PuzzleUpdateRequest):
 
         puzzle_id = request.puzzleId
 
-        cleanup_puzzle_data(puzzle_id)
+        _cleanup_puzzle_data(puzzle_id, existing)
 
         now = datetime.now(timezone.utc)
         update_fields = {
@@ -329,7 +420,7 @@ def delete_puzzle(puzzle_id: str):
             logger.info("Puzzle not found: %s", puzzle_id)
             raise HTTPException(status_code=404, detail="Puzzle not found")
 
-        cleanup_puzzle_data(puzzle_id)
+        _cleanup_puzzle_data(puzzle_id, existing)
 
         collection.delete_one({"puzzleId": puzzle_id})
         logger.info("Puzzle deleted from MongoDB: %s", puzzle_id)
@@ -343,14 +434,93 @@ def delete_puzzle(puzzle_id: str):
         raise HTTPException(status_code=500, detail="Failed to delete puzzle") from e
 
 
-def cleanup_puzzle_data(puzzle_id: str) -> None:
-    """Delete puzzle-related objects from S3 and clear Redis cache."""
+def _fetch_file_from_cache_s3(
+    puzzle_id: str, file_type: str, file_format: str, mongo_data: dict
+) -> bytes:
+    """
+    Fetch a puzzle or solution file from Redis cache first, then S3 if missing.
+    Cache the result if puzzle status is SUCCESS or FAILED.
+
+    Args:
+        puzzle_id (str): The ID of the puzzle.
+        file_type (str): Either 'solution' or 'puzzle'.
+        file_format (str): Either 'csv' or 'png'.
+        mongo_data (dict): The puzzle document fetched from MongoDB.
+
+    Returns:
+        bytes: The file content.
+
+    Raises:
+        HTTPException:
+            - 400 if puzzle is not in SUCCESS status.
+            - 500 if fetching from S3 fails.
+    """
+    cache_key = f"sudoku:{puzzle_id}:{file_type}:{file_format}"
+
+    cached = RedisClient.get_key(cache_key)
+    if cached:
+        logger.info("Cache hit for key %s", cache_key)
+        return cached.encode() if file_format == "csv" else cached
+
+    if mongo_data["status"] != PuzzleStatus.SUCCESS.value:
+        logger.info("Puzzle %s not ready for %s.%s", puzzle_id, file_type, file_format)
+        raise HTTPException(
+            status_code=400,
+            detail=f"{file_type.capitalize()} is only available for SUCCESS puzzles",
+        )
+
+    s3_key_map = {
+        "solution": {
+            "csv": mongo_data.get("solutionCSVKey"),
+            "png": mongo_data.get("solutionImageKey"),
+        },
+        "puzzle": {
+            "csv": mongo_data.get("puzzleCSVKey"),
+            "png": mongo_data.get("puzzleImageKey"),
+        },
+    }
+    s3_key = s3_key_map.get(file_type, {}).get(file_format)
+    if not s3_key:
+        logger.error("S3 key not found in MongoDB for %s.%s", file_type, file_format)
+        raise HTTPException(
+            status_code=500,
+            detail=f"S3 key for {file_type} {file_format} not found",
+        )
+
+    try:
+        data = S3Client.download_object(config.S3_BUCKET_NAME, s3_key)
+    except Exception as e:
+        logger.exception("Failed to download %s from S3: %s", s3_key, e)
+        raise HTTPException(
+            status_code=500, detail=f"Failed to fetch {file_type} {file_format}"
+        ) from e
+
+    ttl_seconds = config.CACHE_TTL_HOURS * 3600
+    try:
+        RedisClient.set_key(cache_key, data, ttl_seconds)
+        logger.info("Cached %s after S3 download", cache_key)
+    except Exception as e:  # pylint: disable=broad-except
+        logger.warning("Failed to cache key %s: %s", cache_key, e)
+
+    return data
+
+
+def _cleanup_puzzle_data(puzzle_id: str, mongo_data: dict) -> None:
+    """
+    Delete puzzle-related objects from S3 (using MongoDB keys) and clear Redis cache.
+
+    Args:
+        puzzle_id (str): The puzzle ID.
+        mongo_data (dict): The puzzle document fetched from MongoDB.
+    """
     s3_keys = [
-        f"{puzzle_id}/solution.csv",
-        f"{puzzle_id}/puzzle.csv",
-        f"{puzzle_id}/solution.png",
-        f"{puzzle_id}/puzzle.png",
+        mongo_data.get("solutionCSVKey"),
+        mongo_data.get("puzzleCSVKey"),
+        mongo_data.get("solutionImageKey"),
+        mongo_data.get("puzzleImageKey"),
     ]
+    s3_keys = [key for key in s3_keys if key]
+
     for key in s3_keys:
         try:
             S3Client.delete_object(bucket=config.S3_BUCKET_NAME, object_key=key)
@@ -361,8 +531,8 @@ def cleanup_puzzle_data(puzzle_id: str) -> None:
         f"sudoku:{puzzle_id}:data",
         f"sudoku:{puzzle_id}:solution:csv",
         f"sudoku:{puzzle_id}:puzzle:csv",
-        f"sudoku:{puzzle_id}:solution:image",
-        f"sudoku:{puzzle_id}:puzzle-image",
+        f"sudoku:{puzzle_id}:solution:png",
+        f"sudoku:{puzzle_id}:puzzle:png",
     ]
     try:
         RedisClient.clear_keys(redis_keys)
