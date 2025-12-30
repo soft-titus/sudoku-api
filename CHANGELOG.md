@@ -46,3 +46,8 @@
 - Merge pull request #6 from soft-titus/dev
 - fix: make all endpoints RESTful
 
+
+
+## 1.2.3 - 2025-12-30
+- fix: can't cache data from mongo, need to serialize it first
+
