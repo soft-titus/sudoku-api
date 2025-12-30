@@ -9,6 +9,8 @@ from app.services.kafka import KafkaClient
 from app.services.mongodb import MongoDBClient
 from app.services.s3 import S3Client
 
+import config
+
 router = APIRouter()
 
 
@@ -89,7 +91,7 @@ def health():
         raise HTTPException(status_code=503, detail="MongoDB: not connected") from e
 
     try:
-        S3Client.check_health()
+        S3Client.check_health(config.S3_BUCKET_NAME)
         s3_status = "connected"
         logger.info("S3 connection OK")
     except Exception as e:
