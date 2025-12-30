@@ -211,8 +211,8 @@ docker compose logs api -f
 ## Code Formatting and Linting
 
 ```bash
-python -m black --check .
-python -m pylint /*.py
+python -m black --check ./
+python -m pylint ./
 ```
 
 ---
