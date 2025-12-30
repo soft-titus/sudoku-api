@@ -12,6 +12,7 @@ from botocore.client import BaseClient
 import config
 
 
+# pylint: disable=duplicate-code
 def get_s3_client() -> BaseClient:
     """Return a botocore S3 client, using custom endpoint if provided."""
     session = botocore.session.get_session()

@@ -7,6 +7,7 @@ from app.helpers.logger import logger
 from app.services.cache import RedisClient
 from app.services.kafka import KafkaClient
 from app.services.mongodb import MongoDBClient
+from app.services.s3 import S3Client
 
 router = APIRouter()
 
@@ -24,6 +25,7 @@ router = APIRouter()
                         "redis": "connected",
                         "kafka": "connected",
                         "mongodb": "connected",
+                        "s3": "connected",
                     }
                 }
             },
@@ -44,6 +46,10 @@ router = APIRouter()
                         "mongodb_down": {
                             "summary": "MongoDB unreachable",
                             "value": {"detail": "MongoDB: not connected"},
+                        },
+                        "s3_down": {
+                            "summary": "S3 unreachable",
+                            "value": {"detail": "S3: not connected"},
                         },
                     }
                 }
@@ -82,6 +88,14 @@ def health():
         logger.error("MongoDB connection FAILED: %s", e)
         raise HTTPException(status_code=503, detail="MongoDB: not connected") from e
 
+    try:
+        S3Client.check_health()
+        s3_status = "connected"
+        logger.info("S3 connection OK")
+    except Exception as e:
+        logger.error("S3 connection FAILED: %s", e)
+        raise HTTPException(status_code=503, detail="S3: not connected") from e
+
     logger.info("Health endpoint : success")
 
     return {
@@ -89,4 +103,5 @@ def health():
         "redis": redis_status,
         "kafka": kafka_status,
         "mongodb": mongodb_status,
+        "s3": s3_status,
     }
