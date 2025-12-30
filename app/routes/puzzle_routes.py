@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 import json
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 from fastapi.responses import StreamingResponse
 from pymongo.errors import DuplicateKeyError
 
@@ -25,6 +25,7 @@ router = APIRouter()
 
 @router.post(
     "/puzzle",
+    status_code=201,
     summary="Create a new Sudoku puzzle",
     description=(
         "Creates a new Sudoku puzzle generation request.\n\n"
@@ -36,7 +37,7 @@ router = APIRouter()
     ),
     response_model=PuzzleResponse,
     responses={
-        200: {
+        201: {
             "description": "Puzzle successfully created",
         },
         409: {
@@ -55,13 +56,14 @@ router = APIRouter()
         },
     },
 )
-def create_puzzle(request: PuzzleCreationRequest):
+def create_puzzle(request: PuzzleCreationRequest, response: Response):
     """
     Insert puzzle data into MongoDB with status `GENERATING_PUZZLE`
     and enqueue a Kafka message.
 
     Args:
         request (PuzzleCreationRequest): Puzzle creation request payload.
+        response (Response): FastAPI Response object to set headers.
 
     Returns:
         PuzzleResponse: The created puzzle document.
@@ -75,6 +77,8 @@ def create_puzzle(request: PuzzleCreationRequest):
         "puzzleSize": request.puzzleSize,
         "level": request.level,
         "status": PuzzleStatus.GENERATING_PUZZLE.value,
+        "solution": None,
+        "puzzle": None,
         "solutionCSVKey": None,
         "puzzleCSVKey": None,
         "solutionImageKey": None,
@@ -122,11 +126,12 @@ def create_puzzle(request: PuzzleCreationRequest):
             detail="Failed to enqueue puzzle request",
         ) from e
 
+    response.headers["Location"] = f"/puzzle/{request.puzzleId}"
     return puzzle_doc
 
 
 @router.get(
-    "/puzzle",
+    "/puzzle/{puzzle_id}",
     summary="Get a Sudoku puzzle",
     description=(
         "Fetch a Sudoku puzzle by puzzle_id.\n\n"
@@ -151,38 +156,7 @@ def get_puzzle(puzzle_id: str):
     Returns:
         PuzzleResponse: The puzzle document.
     """
-    logger.info("Fetching puzzle: %s", puzzle_id)
-    cache_key = f"sudoku:{puzzle_id}:data"
-
-    try:
-        cached_data = RedisClient.get_key(cache_key)
-        if cached_data:
-            logger.info("Cache hit for puzzle %s", puzzle_id)
-            return json.loads(cached_data)
-
-        db = MongoDBClient.get_db()
-        collection = db[config.MONGO_COLLECTION_NAME]
-
-        puzzle = collection.find_one({"puzzleId": puzzle_id})
-        if not puzzle:
-            logger.info("Puzzle not found: %s", puzzle_id)
-            raise HTTPException(status_code=404, detail="Puzzle not found")
-
-        if puzzle["status"] in (PuzzleStatus.SUCCESS.value, PuzzleStatus.FAILED.value):
-            ttl_seconds = config.CACHE_TTL_HOURS * 3600
-            try:
-                RedisClient.set_key(cache_key, json.dumps(puzzle), ttl_seconds)
-                logger.info("Puzzle cached with key %s", cache_key)
-            except Exception as e:  # pylint: disable=broad-except
-                logger.warning("Failed to cache puzzle %s: %s", puzzle_id, e)
-
-        return puzzle
-
-    except HTTPException:
-        raise
-    except Exception as e:  # pylint: disable=broad-except
-        logger.exception("Failed to fetch puzzle %s", puzzle_id)
-        raise HTTPException(status_code=500, detail="Failed to fetch puzzle") from e
+    return _get_puzzle(puzzle_id)
 
 
 @router.get(
@@ -208,8 +182,7 @@ def get_solution_file(puzzle_id: str, file_format: str = "png"):
             status_code=400, detail="Invalid file_format, supported value : 'csv, png'"
         )
 
-    # Reuse GET /puzzle logic
-    puzzle_data = get_puzzle(puzzle_id)
+    puzzle_data = _get_puzzle(puzzle_id)
 
     data = _fetch_file_from_cache_s3(puzzle_id, "solution", file_format, puzzle_data)
 
@@ -254,8 +227,7 @@ def get_puzzle_file(puzzle_id: str, file_format: str = "png"):
             status_code=400, detail="Invalid file_format, supported value : 'csv, png'"
         )
 
-    # Reuse GET /puzzle logic
-    puzzle_data = get_puzzle(puzzle_id)
+    puzzle_data = _get_puzzle(puzzle_id)
 
     data = _fetch_file_from_cache_s3(puzzle_id, "puzzle", file_format, puzzle_data)
 
@@ -276,7 +248,7 @@ def get_puzzle_file(puzzle_id: str, file_format: str = "png"):
 
 
 @router.patch(
-    "/puzzle",
+    "/puzzle/{puzzle_id}",
     summary="Update an existing Sudoku puzzle",
     description=(
         "Update a Sudoku puzzle's metadata (puzzleSize or level) by puzzleId.\n\n"
@@ -302,40 +274,41 @@ def get_puzzle_file(puzzle_id: str, file_format: str = "png"):
         500: {"description": "Internal server error"},
     },
 )
-def update_puzzle(request: PuzzleUpdateRequest):
+def update_puzzle(puzzle_id: str, request: PuzzleUpdateRequest):
     """
     Update an existing puzzle's size or level if allowed, reset generated fields,
     delete old puzzle data from S3, clear Redis cache, and enqueue a Kafka message
     to regenerate the puzzle and solution.
 
     Args:
+        puzzle_id (str): The ID of the puzzle to update.
         request (PuzzleUpdateRequest): Puzzle update payload.
 
     Returns:
         PuzzleResponse: The updated puzzle document.
     """
-    logger.info("Received puzzle update request: %s", request.json())
+    logger.info(
+        "Received puzzle update request for puzzle %s: %s", puzzle_id, request.json()
+    )
 
     try:
         db = MongoDBClient.get_db()
         collection = db[config.MONGO_COLLECTION_NAME]
 
-        existing = collection.find_one({"puzzleId": request.puzzleId})
+        existing = collection.find_one({"puzzleId": puzzle_id})
         if not existing:
-            logger.info("Puzzle not found: %s", request.puzzleId)
+            logger.info("Puzzle not found: %s", puzzle_id)
             raise HTTPException(status_code=404, detail="Puzzle not found")
 
         if existing["status"] not in (
             PuzzleStatus.SUCCESS.value,
             PuzzleStatus.FAILED.value,
         ):
-            logger.info("Puzzle %s is still processing", request.puzzleId)
+            logger.info("Puzzle %s is still processing", puzzle_id)
             raise HTTPException(
                 status_code=409,
                 detail="Puzzle is still generating or processing, cannot update",
             )
-
-        puzzle_id = request.puzzleId
 
         _cleanup_puzzle_data(puzzle_id, existing)
 
@@ -379,12 +352,12 @@ def update_puzzle(request: PuzzleUpdateRequest):
     except HTTPException:
         raise
     except Exception as e:  # pylint: disable=broad-except
-        logger.exception("Failed to update puzzle %s", request.puzzleId)
+        logger.exception("Failed to update puzzle %s", puzzle_id)
         raise HTTPException(status_code=500, detail="Failed to update puzzle") from e
 
 
 @router.delete(
-    "/puzzle",
+    "/puzzle/{puzzle_id}",
     summary="Delete an existing Sudoku puzzle",
     description=(
         "Deletes a Sudoku puzzle by puzzleId.\n\n"
@@ -432,6 +405,73 @@ def delete_puzzle(puzzle_id: str):
     except Exception as e:  # pylint: disable=broad-except
         logger.exception("Failed to delete puzzle %s", puzzle_id)
         raise HTTPException(status_code=500, detail="Failed to delete puzzle") from e
+
+
+def _get_puzzle(puzzle_id: str) -> dict:
+    """
+    Retrieve a puzzle from Redis cache or MongoDB.
+
+    - Tries Redis first
+    - Falls back to MongoDB
+    - Caches result only if status is SUCCESS or FAILED
+
+    Args:
+        puzzle_id (str): The ID of the puzzle to fetch.
+
+    Returns:
+        dict: The puzzle document.
+
+    Raises:
+        HTTPException:
+            - 404 if puzzle does not exist
+            - 500 on unexpected errors
+    """
+    logger.info("Fetching puzzle (internal): %s", puzzle_id)
+    cache_key = f"sudoku:{puzzle_id}:data"
+
+    try:
+        cached_data = RedisClient.get_key(cache_key)
+        if cached_data:
+            logger.info("Cache hit for puzzle %s", puzzle_id)
+            return json.loads(cached_data)
+
+        db = MongoDBClient.get_db()
+        collection = db[config.MONGO_COLLECTION_NAME]
+
+        puzzle = collection.find_one({"puzzleId": puzzle_id})
+        if not puzzle:
+            logger.info("Puzzle not found: %s", puzzle_id)
+            raise HTTPException(status_code=404, detail="Puzzle not found")
+
+        if puzzle["status"] in (
+            PuzzleStatus.SUCCESS.value,
+            PuzzleStatus.FAILED.value,
+        ):
+            ttl_seconds = config.CACHE_TTL_HOURS * 3600
+            try:
+                RedisClient.set_key(
+                    cache_key,
+                    json.dumps(puzzle),
+                    ttl_seconds,
+                )
+                logger.info("Puzzle cached with key %s", cache_key)
+            except Exception as e:  # pylint: disable=broad-except
+                logger.warning(
+                    "Failed to cache puzzle %s: %s",
+                    puzzle_id,
+                    e,
+                )
+
+        return puzzle
+
+    except HTTPException:
+        raise
+    except Exception as e:  # pylint: disable=broad-except
+        logger.exception("Failed to fetch puzzle %s", puzzle_id)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to fetch puzzle",
+        ) from e
 
 
 def _fetch_file_from_cache_s3(
