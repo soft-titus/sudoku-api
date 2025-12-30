@@ -2,6 +2,7 @@
 
 from datetime import datetime, timezone
 import json
+from bson import ObjectId
 
 from fastapi import APIRouter, HTTPException, Response
 from fastapi.responses import StreamingResponse
@@ -262,6 +263,7 @@ def get_puzzle_file(puzzle_id: str, file_format: str = "png"):
     response_model=PuzzleResponse,
     responses={
         200: {"description": "Puzzle successfully updated and re-queued"},
+        400: {"description": "No payload given to update"},
         404: {"description": "Puzzle with the given puzzleId not found"},
         409: {
             "description": "Puzzle is still processing, cannot update",
@@ -290,6 +292,9 @@ def update_puzzle(puzzle_id: str, request: PuzzleUpdateRequest):
     logger.info(
         "Received puzzle update request for puzzle %s: %s", puzzle_id, request.json()
     )
+
+    if request.puzzleSize is None and request.level is None:
+        raise HTTPException(status_code=400, detail="No update fields provided")
 
     try:
         db = MongoDBClient.get_db()
@@ -451,7 +456,7 @@ def _get_puzzle(puzzle_id: str) -> dict:
             try:
                 RedisClient.set_key(
                     cache_key,
-                    json.dumps(puzzle),
+                    json.dumps(_serialize_mongo_doc(puzzle)),
                     ttl_seconds,
                 )
                 logger.info("Puzzle cached with key %s", cache_key)
@@ -578,3 +583,10 @@ def _cleanup_puzzle_data(puzzle_id: str, mongo_data: dict) -> None:
         RedisClient.clear_keys(redis_keys)
     except Exception as e:  # pylint: disable=broad-except
         logger.warning("Failed to clear Redis keys %s: %s", redis_keys, e)
+
+
+def _serialize_mongo_doc(doc: dict) -> dict:
+    for k, v in doc.items():
+        if isinstance(v, ObjectId):
+            doc[k] = str(v)
+    return doc
