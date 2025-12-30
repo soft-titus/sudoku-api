@@ -51,3 +51,9 @@
 ## 1.2.3 - 2025-12-30
 - fix: can't cache data from mongo, need to serialize it first
 
+
+
+## 1.2.4 - 2025-12-30
+- fix: can't cache to redis because of the datetime object
+- fix: duplicate arguments, typo
+
