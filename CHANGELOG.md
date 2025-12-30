@@ -26,3 +26,10 @@
 - fix: add DELETE /puzzle endpoint
 - fix: add s3 health-check
 
+
+
+## 1.2.0 - 2025-12-30
+- Merge pull request #4 from soft-titus/dev
+- feat: add GET /puzzle/{puzzle_id}/solution and GET /puzzle/{_puzzle_id}/puzzle endpoints
+- fix: add GET /puzzle endpoint
+
