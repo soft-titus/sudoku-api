@@ -34,8 +34,8 @@ REDIS_HOST = os.getenv("REDIS_HOST", "redis")
 REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
 REDIS_DB = int(os.getenv("REDIS_DB", "0"))
 
-AWS_ACCESS_KEY_ID = os.getenv("MINIO_ROOT_USER", "sudoku")
-AWS_SECRET_ACCESS_KEY = os.getenv("MINIO_ROOT_PASSWORD", "verySECRET123")
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "sudoku")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "verySECRET123")
 AWS_REGION = os.getenv("AWS_REGION", "ap-southeast-1")
 
 S3_PROTOCOL = os.getenv("S3_PROTOCOL", "https")
