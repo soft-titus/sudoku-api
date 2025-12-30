@@ -124,6 +124,66 @@ def create_puzzle(request: PuzzleCreationRequest):
     return puzzle_doc
 
 
+@router.get(
+    "/puzzle",
+    summary="Get a Sudoku puzzle",
+    description=(
+        "Fetch a Sudoku puzzle by puzzle_id.\n\n"
+        "First tries to fetch from Redis cache. If not found, fetches from MongoDB.\n\n"
+        "Only stores the puzzle in cache if its status is `SUCCESS` or `FAILED`.\n\n"
+        "If the puzzle does not exist, a 404 is returned."
+    ),
+    response_model=PuzzleResponse,
+    responses={
+        200: {"description": "Puzzle successfully fetched"},
+        404: {"description": "Puzzle with the given puzzle_id not found"},
+        500: {"description": "Internal server error"},
+    },
+)
+def get_puzzle(puzzle_id: str):
+    """
+    Retrieve a puzzle from cache or MongoDB.
+
+    Args:
+        puzzle_id (str): The ID of the puzzle to fetch.
+
+    Returns:
+        PuzzleResponse: The puzzle document.
+    """
+    logger.info("Fetching puzzle: %s", puzzle_id)
+    cache_key = f"sudoku:{puzzle_id}:data"
+
+    try:
+        cached_data = RedisClient.get_key(cache_key)
+        if cached_data:
+            logger.info("Cache hit for puzzle %s", puzzle_id)
+            return json.loads(cached_data)
+
+        db = MongoDBClient.get_db()
+        collection = db[config.MONGO_COLLECTION_NAME]
+
+        puzzle = collection.find_one({"puzzleId": puzzle_id})
+        if not puzzle:
+            logger.info("Puzzle not found: %s", puzzle_id)
+            raise HTTPException(status_code=404, detail="Puzzle not found")
+
+        if puzzle["status"] in (PuzzleStatus.SUCCESS.value, PuzzleStatus.FAILED.value):
+            ttl_seconds = config.CACHE_TTL_HOURS * 3600
+            try:
+                RedisClient.set_key(cache_key, json.dumps(puzzle), ttl_seconds)
+                logger.info("Puzzle cached with key %s", cache_key)
+            except Exception as e:  # pylint: disable=broad-except
+                logger.warning("Failed to cache puzzle %s: %s", puzzle_id, e)
+
+        return puzzle
+
+    except HTTPException:
+        raise
+    except Exception as e:  # pylint: disable=broad-except
+        logger.exception("Failed to fetch puzzle %s", puzzle_id)
+        raise HTTPException(status_code=500, detail="Failed to fetch puzzle") from e
+
+
 @router.patch(
     "/puzzle",
     summary="Update an existing Sudoku puzzle",
