@@ -40,3 +40,9 @@
 - fix: git hooks pre-commit should check all python files on the repo
 - fix: use wrong env var for S3 credentials
 
+
+
+## 1.2.2 - 2025-12-30
+- Merge pull request #6 from soft-titus/dev
+- fix: make all endpoints RESTful
+
