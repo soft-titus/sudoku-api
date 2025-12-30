@@ -33,3 +33,10 @@
 - feat: add GET /puzzle/{puzzle_id}/solution and GET /puzzle/{_puzzle_id}/puzzle endpoints
 - fix: add GET /puzzle endpoint
 
+
+
+## 1.2.1 - 2025-12-30
+- Merge pull request #5 from soft-titus/dev
+- fix: git hooks pre-commit should check all python files on the repo
+- fix: use wrong env var for S3 credentials
+
