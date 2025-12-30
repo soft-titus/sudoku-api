@@ -586,7 +586,12 @@ def _cleanup_puzzle_data(puzzle_id: str, mongo_data: dict) -> None:
 
 
 def _serialize_mongo_doc(doc: dict) -> dict:
+    new_doc = {}
     for k, v in doc.items():
         if isinstance(v, ObjectId):
-            doc[k] = str(v)
-    return doc
+            new_doc[k] = str(v)
+        elif isinstance(v, datetime):
+            new_doc[k] = v.isoformat()
+        else:
+            new_doc[k] = v
+    return new_doc
