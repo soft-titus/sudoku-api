@@ -110,3 +110,33 @@ class S3Client:
                 e,
             )
             raise
+
+    @classmethod
+    def download_object(cls, bucket: str, object_key: str) -> bytes:
+        """
+        Download an object from S3 / MinIO.
+
+        Args:
+            bucket (str): S3 bucket name.
+            object_key (str): Object key (e.g., 'puzzleId/solution.png').
+
+        Returns:
+            bytes: Object content.
+
+        Raises:
+            ClientError: If the object does not exist or download fails.
+        """
+        client = cls.get_client()
+        try:
+            response = client.get_object(Bucket=bucket, Key=object_key)
+            data = response["Body"].read()
+            logger.info("Downloaded object s3://%s/%s", bucket, object_key)
+            return data
+        except ClientError as e:
+            logger.error(
+                "Failed to download object s3://%s/%s: %s",
+                bucket,
+                object_key,
+                e,
+            )
+            raise

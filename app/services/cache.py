@@ -50,7 +50,30 @@ class RedisClient:
             raise e
 
     @classmethod
-    def set_with_ttl(cls, key: str, value: str, ttl: int | None = None) -> None:
+    def get_key(cls, key: str) -> str | None:
+        """
+        Retrieve a value from Redis by key.
+
+        Args:
+            key (str): Redis key.
+
+        Returns:
+            str | None: The value if exists, otherwise None.
+        """
+        client = cls.get_client()
+        try:
+            value = client.get(key)
+            if value is not None:
+                logger.info("Cache hit for key: %s", key)
+            else:
+                logger.info("Cache miss for key: %s", key)
+            return value
+        except redis_exceptions.RedisError as e:
+            logger.warning("Failed to get key from Redis: %s", e)
+            return None
+
+    @classmethod
+    def set_key(cls, key: str, value: str, ttl: int | None = None) -> None:
         """
         Set a key-value pair in Redis with a TTL.
 
