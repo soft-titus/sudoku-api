@@ -189,7 +189,7 @@ def get_solution_file(puzzle_id: str, file_format: str = "png"):
 
     if file_format == "csv":
         return StreamingResponse(
-            content=data if isinstance(data, bytes) else data.encode(),
+            content=[data],
             media_type="text/csv; charset=utf-8",
             headers={
                 "Content-Disposition": f"attachment; filename={puzzle_id}_solution.csv"
@@ -197,7 +197,7 @@ def get_solution_file(puzzle_id: str, file_format: str = "png"):
         )
 
     return StreamingResponse(
-        content=data,
+        content=[data],
         media_type="image/png",
         headers={
             "Content-Disposition": f"attachment; filename={puzzle_id}_solution.png"
@@ -234,7 +234,7 @@ def get_puzzle_file(puzzle_id: str, file_format: str = "png"):
 
     if file_format == "csv":
         return StreamingResponse(
-            content=data if isinstance(data, bytes) else data.encode(),
+            content=[data],
             media_type="text/csv; charset=utf-8",
             headers={
                 "Content-Disposition": f"attachment; filename={puzzle_id}_puzzle.csv"
@@ -242,7 +242,7 @@ def get_puzzle_file(puzzle_id: str, file_format: str = "png"):
         )
 
     return StreamingResponse(
-        content=data,
+        content=[data],
         media_type="image/png",
         headers={"Content-Disposition": f"attachment; filename={puzzle_id}_puzzle.png"},
     )
@@ -500,19 +500,19 @@ def _fetch_file_from_cache_s3(
             - 400 if puzzle is not in SUCCESS status.
             - 500 if fetching from S3 fails.
     """
-    cache_key = f"sudoku:{puzzle_id}:{file_type}:{file_format}"
-
-    cached = RedisClient.get_key(cache_key)
-    if cached:
-        logger.info("Cache hit for key %s", cache_key)
-        return cached.encode() if file_format == "csv" else cached
-
     if mongo_data["status"] != PuzzleStatus.SUCCESS.value:
         logger.info("Puzzle %s not ready for %s.%s", puzzle_id, file_type, file_format)
         raise HTTPException(
             status_code=400,
             detail=f"{file_type.capitalize()} is only available for SUCCESS puzzles",
         )
+
+    cache_key = f"sudoku:{puzzle_id}:{file_type}:{file_format}"
+
+    cached = RedisClient.get_key(cache_key)
+    if cached:
+        logger.info("Cache hit for key %s", cache_key)
+        return cached.encode() if isinstance(cached, str) else cached
 
     s3_key_map = {
         "solution": {
@@ -547,7 +547,7 @@ def _fetch_file_from_cache_s3(
     except Exception as e:  # pylint: disable=broad-except
         logger.warning("Failed to cache key %s: %s", cache_key, e)
 
-    return data
+    return data.encode() if isinstance(data, str) else data
 
 
 def _cleanup_puzzle_data(puzzle_id: str, mongo_data: dict) -> None:
