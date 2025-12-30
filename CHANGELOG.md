@@ -57,3 +57,9 @@
 - fix: can't cache to redis because of the datetime object
 - fix: duplicate arguments, typo
 
+
+
+## 1.2.5 - 2025-12-30
+- Merge pull request #7 from soft-titus/dev
+- fix: issue with fastapi streaming response
+
