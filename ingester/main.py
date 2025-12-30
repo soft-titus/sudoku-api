@@ -114,7 +114,7 @@ def parse_arguments() -> argparse.Namespace:
         help="Path to solution CSV",
     )
     parser.add_argument(
-        "--solution-csv-path",
+        "--puzzle-csv-path",
         default=None,
         help="Path to puzzle CSV",
     )
