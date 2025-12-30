@@ -1,10 +1,10 @@
 #!/bin/sh
 
 # Get staged Python files inside app/
-STAGED_FILES=$(git diff --cached --name-only --diff-filter=d -- '*.py' | grep -E '^app/')
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=d -- '*.py')
 
 if [ -z "$STAGED_FILES" ]; then
-  echo "No staged Python files in app/. Skipping."
+  echo "No staged Python files. Skipping."
   exit 0
 fi
 
