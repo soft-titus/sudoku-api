@@ -4,3 +4,5 @@ redis==7.1.0
 confluent-kafka==2.12.2
 pymongo==4.15.5
 botocore==1.42.17
+prometheus-client==0.20.0
+prometheus-fastapi-instrumentator==7.1.0
