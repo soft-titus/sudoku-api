@@ -9,6 +9,9 @@ or S3-compatible storage (e.g., MinIO), while puzzle state and metadata are
 persisted in MongoDB. Redis is used as a cache layer to improve performance
 and reduce repeated database reads.
 
+The API layer is horizontally scalable using KEDA, with scaling driven by
+Prometheus metrics based on incoming HTTP request volume.
+
 ---
 
 ## Features
@@ -18,6 +21,8 @@ and reduce repeated database reads.
 - Endpoint to check puzzle generation progress
 - Generated images (puzzle and solution) uploaded to S3 or S3-compatible
   storage
+- Horizontal API autoscaling with KEDA, driven by Prometheus HTTP
+  request metrics
 
 ---
 

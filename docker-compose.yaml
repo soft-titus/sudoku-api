@@ -7,6 +7,8 @@ services:
       - "8080:8080"
     env_file:
       - .env
+    volumes:
+      - metrics_data:${PROMETHEUS_MULTIPROC_DIR}
     depends_on:
       redis:
         condition: service_healthy
@@ -16,6 +18,19 @@ services:
         condition: service_completed_successfully
       minio-init:
         condition: service_completed_successfully
+    restart: unless-stopped
+
+  metrics:
+    build: .
+    container_name: metrics
+    ports:
+      - "9090:9090"
+    env_file:
+      - .env
+    volumes:
+      - metrics_data:${PROMETHEUS_MULTIPROC_DIR}
+    command: >
+      sh -c "uvicorn app.metrics_server:metrics_app --host 0.0.0.0 --port 9090"
     restart: unless-stopped
 
   redis:
@@ -218,3 +233,4 @@ volumes:
   zookeeper_log:
   kafka_data:
   minio_data:
+  metrics_data:

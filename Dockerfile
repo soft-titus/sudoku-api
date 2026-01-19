@@ -12,5 +12,6 @@ COPY *.py .
 COPY app/ app/
 
 EXPOSE 8080
+EXPOSE 9090
 
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port 8080"]
