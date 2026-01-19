@@ -63,3 +63,10 @@
 - Merge pull request #7 from soft-titus/dev
 - fix: issue with fastapi streaming response
 
+
+
+## 1.3.0 - 2026-01-19
+- Merge pull request #8 from soft-titus/dev
+- feat: add prometheus custom metrics sudoku_api_total_requests, for horizontal autoscaling with KEDA
+- docs: update README.md
+
