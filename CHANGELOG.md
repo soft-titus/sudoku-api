@@ -70,3 +70,9 @@
 - feat: add prometheus custom metrics sudoku_api_total_requests, for horizontal autoscaling with KEDA
 - docs: update README.md
 
+
+
+## 1.3.1 - 2026-01-22
+- Merge pull request #9 from soft-titus/dev
+- fix: remove custom metrics for total requests, not needed as already provided with default instrumentation
+
