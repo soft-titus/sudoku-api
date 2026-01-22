@@ -19,7 +19,6 @@ from app.services.cache import RedisClient
 from app.services.kafka import KafkaClient
 from app.services.mongodb import MongoDBClient
 from app.services.s3 import S3Client
-from app.metrics import sudoku_api_requests_total
 import config
 
 router = APIRouter()
@@ -71,8 +70,6 @@ def create_puzzle(request: PuzzleCreationRequest, response: Response):
         PuzzleResponse: The created puzzle document.
     """
     logger.info("Received puzzle request: %s", request.json())
-
-    sudoku_api_requests_total.labels(method="POST", endpoint="/puzzle").inc()
 
     now = datetime.now(timezone.utc)
 
@@ -160,8 +157,6 @@ def get_puzzle(puzzle_id: str):
     Returns:
         PuzzleResponse: The puzzle document.
     """
-    sudoku_api_requests_total.labels(method="GET", endpoint="/puzzle/{puzzle_id}").inc()
-
     return _get_puzzle(puzzle_id)
 
 
@@ -183,10 +178,6 @@ def get_puzzle(puzzle_id: str):
 )
 def get_solution_file(puzzle_id: str, file_format: str = "png"):
     """Retrieve the solution file for a Sudoku puzzle."""
-    sudoku_api_requests_total.labels(
-        method="GET", endpoint="/puzzle/{puzzle_id}/solution"
-    ).inc()
-
     if file_format not in ("csv", "png"):
         raise HTTPException(
             status_code=400, detail="Invalid file_format, supported value : 'csv, png'"
@@ -232,10 +223,6 @@ def get_solution_file(puzzle_id: str, file_format: str = "png"):
 )
 def get_puzzle_file(puzzle_id: str, file_format: str = "png"):
     """Retrieve the puzzle (unsolved) file for a Sudoku puzzle."""
-    sudoku_api_requests_total.labels(
-        method="GET", endpoint="/puzzle/{puzzle_id}/puzzle"
-    ).inc()
-
     if file_format not in ("csv", "png"):
         raise HTTPException(
             status_code=400, detail="Invalid file_format, supported value : 'csv, png'"
@@ -305,10 +292,6 @@ def update_puzzle(puzzle_id: str, request: PuzzleUpdateRequest):
     logger.info(
         "Received puzzle update request for puzzle %s: %s", puzzle_id, request.json()
     )
-
-    sudoku_api_requests_total.labels(
-        method="PATCH", endpoint="/puzzle/{puzzle_id}"
-    ).inc()
 
     if request.puzzleSize is None and request.level is None:
         raise HTTPException(status_code=400, detail="No update fields provided")
@@ -405,10 +388,6 @@ def delete_puzzle(puzzle_id: str):
         PuzzleResponse: The deleted puzzle document.
     """
     logger.info("Received request to delete puzzle: %s", puzzle_id)
-
-    sudoku_api_requests_total.labels(
-        method="DELETE", endpoint="/puzzle/{puzzle_id}"
-    ).inc()
 
     try:
         db = MongoDBClient.get_db()
